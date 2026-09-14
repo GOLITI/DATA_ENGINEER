@@ -1,0 +1,24 @@
+services:
+  postgres:
+    image: postgres:18.3-alpine3.23
+    container_name: weather_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "${DB_PORT}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - weather_network
+
+volumes:
+  postgres_data:
+    name: postgres_data
+
+networks:
+  weather_network:
+    name: weather_network
