@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 # Charge le contenu de .env dans les variables d'environnement
 load_dotenv()
 
-# --- Configuration base de données ---
+# Configuration base de données
 DB_HOST = os.getenv("DB_HOST", "localhost")
 DB_PORT = os.getenv("DB_PORT", "5433")
 DB_NAME = os.getenv("DB_NAME", "weather_db")
@@ -14,11 +14,11 @@ DB_PASSWORD = os.getenv("DB_PASSWORD", "weather_pass")
 # On construit une URL de connexion au format standard
 # dialecte+driver://user:password@host:port/database
 DATABASE_URL = (
-    f"postgresql+psycopg://{DB_USER}:{DB_PASSWORD}"
+    f"postgresql+psycopg2://{DB_USER}:{DB_PASSWORD}"
     f"@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 )
 
-# --- Les villes qu'on veut surveiller ---
+# Les villes qu'on veut surveiller
 DESTINATIONS = [
     {"city": "Abidjan", "country": "CI"},
     {"city": "Paris", "country": "FR"},

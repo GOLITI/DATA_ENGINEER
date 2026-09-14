@@ -14,8 +14,7 @@ import pandas as pd
 # Pour ajouter une source : créer sources/xxx.py puis l'ajouter ici.
 ACTIVE_SOURCES = [
     openweather,
-    # meteofrance,     # <- décommenter le jour où on l'active
-    # weatherapi,      # <- idem
+    # meteofrance,     # décommenter le jour où on l'active
 ]
 
 
@@ -81,7 +80,7 @@ def run_pipeline() -> None:
     print("PIPELINE METEO - multi-source -> PostgreSQL")
     print()
 
-    # Étape 0 : Vérifier la connexion BDD
+    # Étape 1 : Vérifier la connexion BDD
     print("Vérification de la connexion PostgreSQL...")
     if not test_connection():
         print()
@@ -90,7 +89,7 @@ def run_pipeline() -> None:
         return
     print()
 
-    # Étape 1 + 2 : Collecte et transformation
+    # Étape 2 et 3 : Collecte et transformation
     df = collect_and_transform(DESTINATIONS)
 
     if df.empty:
@@ -103,12 +102,12 @@ def run_pipeline() -> None:
     print(df[preview_cols].to_string(index=False))
     print()
 
-    # Étape 3 : Insertion
+    # Étape 4 : Insertion
     print("Insertion en base PostgreSQL...")
     insert_weather(df)
     print()
 
-    # Étape 4 : Vérification
+    # Étape 5 : Vérification
     print("Résumé des dernières mesures par ville :")
     rows = query_latest_weather()
     print_summary(rows)

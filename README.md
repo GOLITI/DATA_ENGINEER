@@ -16,7 +16,7 @@ Bienvenue sur mon dépôt centralisé dédié à ma formation et ma progression 
   * **Technologies :** SQLite ou MySQL.
 
 ### 📂 Partie 1 : Collecte & Stockage de Données
-* **[ ] [Projet 3 : API Météo & Stockage SQL](./03_api_weather_sql/)**
+* **[X] [Projet 3 : API Météo & Stockage SQL](./03_api_weather_sql/)**
   * **Concepts clés :** Ingestion via API REST, nettoyage et normalisation, automatisation de pipeline.
   * **Technologies :** Python (`requests`), PostgreSQL/MySQL, Docker, Apache Airflow.
 
@@ -93,12 +93,3 @@ Bienvenue sur mon dépôt centralisé dédié à ma formation et ma progression 
 * **[ ] [Projet 19 : Prévisions Météo & Machine Learning Pipeline](./19_cloud_weather_mlops/)**
   * **Concepts clés :** MLOps de base, entraînement et réentraînement automatisé de modèles prédictifs.
   * **Technologies :** Azure ML Studio, Databricks, Power BI.
-
----
-
-## 🛠️ Configuration Globale & Prérequis
-
-Pour exécuter les différents projets de ce portfolio, les outils de base requis au niveau global sont :
-* **Git** pour le versioning.
-* **Docker & Docker Compose** pour la conteneurisation des bases de données et orchestrateurs (Airflow, Kafka, PostgreSQL).
-* **Python 3.10+** (les dépendances spécifiques se trouvent dans le fichier `requirements.txt` de chaque sous-dossier).

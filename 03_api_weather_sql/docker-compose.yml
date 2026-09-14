@@ -1,4 +1,6 @@
 services:
+
+  # Base de données métier (weather_db)
   postgres:
     image: postgres:18.3-alpine3.23
     container_name: weather_postgres
@@ -15,10 +17,81 @@ services:
     networks:
       - weather_network
 
+  # Base de données metadata d'Airflow (airflow_db)
+  postgres-airflow:
+    image: postgres:18.3-alpine3.23
+    container_name: airflow_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${AIRFLOW_DB_NAME}
+      POSTGRES_USER: ${AIRFLOW_DB_USER}
+      POSTGRES_PASSWORD: ${AIRFLOW_DB_PASSWORD}
+    ports:
+      - "${AIRFLOW_DB_PORT}:5432"
+    volumes:
+      - airflow_postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "${AIRFLOW_DB_USER}"]
+      interval: 10s
+      retries: 5
+    networks:
+      - weather_network
+
+  # Airflow (webserver + scheduler + executor)
+  airflow:
+    build:
+      context: .
+      dockerfile: Dockerfile.airflow
+    container_name: airflow
+    restart: unless-stopped
+    depends_on:
+      postgres-airflow:
+        condition: service_healthy
+    environment:
+      # Configuration Airflow
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${AIRFLOW_DB_USER}:${AIRFLOW_DB_PASSWORD}@postgres-airflow:5432/${AIRFLOW_DB_NAME}
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+      AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
+      AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW_SECRET_KEY}
+
+      # Variables pour l'initialisation
+      AIRFLOW_ADMIN_USER: ${AIRFLOW_ADMIN_USER}
+      AIRFLOW_ADMIN_PASSWORD: ${AIRFLOW_ADMIN_PASSWORD}
+      AIRFLOW_ADMIN_EMAIL: ${AIRFLOW_ADMIN_EMAIL}
+
+      # Variables transmises à ton DAG
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      OPENWEATHER_API_KEY: ${OPENWEATHER_API_KEY}
+    ports:
+      - "8080:8080"
+    volumes:
+      # Dossiers partagés entre le PC et le conteneur
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./plugins:/opt/airflow/plugins
+      # Code Python monté dans le conteneur
+      - ./sources:/opt/airflow/sources
+      - ./database.py:/opt/airflow/database.py
+      - ./config.py:/opt/airflow/config.py
+      # Script d'initialisation
+      - ./airflow-entrypoint.sh:/opt/airflow/airflow-entrypoint.sh
+    entrypoint: ["/bin/bash", "/opt/airflow/airflow-entrypoint.sh"]
+    networks:
+      - weather_network
+
+# Volumes (données persistantes)
 volumes:
   postgres_data:
     name: postgres_data
+  airflow_postgres_data:
+    name: airflow_postgres_data
 
+# Réseau
 networks:
   weather_network:
     name: weather_network

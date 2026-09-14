@@ -1,0 +1,6 @@
+# On part de l'image Airflow officielle
+FROM apache/airflow:2.10.3-python3.12
+
+# On installe les libs de requirements-airflow.txt dans le conteneur
+COPY requirements-airflow.txt /tmp/requirements-airflow.txt
+RUN pip install --no-cache-dir -r /tmp/requirements-airflow.txt

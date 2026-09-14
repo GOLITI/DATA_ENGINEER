@@ -10,7 +10,7 @@ Ce projet consiste à concevoir un pipeline de données automatisé pour collect
 4. **Conteneurisation & Orchestration (Futur) :** Isolation du script via **Docker** et planification des extractions quotidiennes avec **Apache Airflow**.
 
 ## 🛠️ Technologies cibles
-* **Langage :** Python 3 (`requests`, `psycopg3` ou `SQLAlchemy`)
+* **Langage :** Python 3 (`requests`, `psycopg2` ou `SQLAlchemy`)
 * **Source des données :** OpenWeather API
 * **Stockage :** PostgreSQL
 * **Infrastructure :** Docker, Apache Airflow
