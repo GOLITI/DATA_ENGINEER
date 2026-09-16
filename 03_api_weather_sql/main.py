@@ -1,4 +1,8 @@
-# Point d'entrée du pipeline météo.
+# Point d'entrée du pipeline météo (exécution locale sans Airflow)
+
+import json
+import pandas as pd
+from datetime import datetime
 
 from config import DESTINATIONS
 from sources import openweather
@@ -7,22 +11,19 @@ from database import (
     insert_weather,
     query_latest_weather,
 )
-import pandas as pd
 
 
-# Registre des sources actives.
-# Pour ajouter une source : créer sources/xxx.py puis l'ajouter ici.
+# Registre des sources actives
 ACTIVE_SOURCES = [
     openweather,
-    # meteofrance,     # décommenter le jour où on l'active
 ]
 
 
-# Étape 1 : Collecte et transformation via toutes les sources actives.
-def collect_and_transform(destinations: list[dict]) -> pd.DataFrame:
-    print(f"Collecte via {len(ACTIVE_SOURCES)} source(s) pour {len(destinations)} villes...")
+# Étape 1 : Extract - appel API, écriture JSON brut
+def extract(destinations: list[dict]) -> str:
+    print(f"Extract : collecte via {len(ACTIVE_SOURCES)} source(s) pour {len(destinations)} villes...")
 
-    all_rows = []
+    raw_responses = []
 
     for source_module in ACTIVE_SOURCES:
         print(f"   Source : {source_module.SOURCE_NAME}")
@@ -38,27 +39,50 @@ def collect_and_transform(destinations: list[dict]) -> pd.DataFrame:
                 print("ECHEC")
                 continue
 
-            row = source_module.transform(raw)
-            if not row:
-                print("ECHEC (transformation)")
-                continue
-
-            all_rows.append(row)
+            raw_responses.append(raw)
             print("OK")
 
-    # Convertit en DataFrame
-    df = pd.DataFrame(all_rows)
+    path = "/tmp/weather_raw.json"
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(raw_responses, f, ensure_ascii=False)
+
+    print(f"   {len(raw_responses)} reponses brutes -> {path}")
+    print()
+    return path
+
+
+# Étape 2 : Transform - nettoyage, normalisation
+def transform(path: str) -> pd.DataFrame:
+    print("Transform : nettoyage des donnees...")
+
+    with open(path, "r", encoding="utf-8") as f:
+        raw_responses = json.load(f)
+
+    rows = []
+    for raw in raw_responses:
+        row = openweather.transform(raw)
+        if row:
+            rows.append(row)
+
+    df = pd.DataFrame(rows)
 
     if not df.empty:
-        # Doublon si même (source, city_code, collected_at)
         df = df.drop_duplicates(subset=["source", "city_code", "collected_at"])
 
-    print(f"   {len(df)} lignes prêtes à être insérées.")
+    print(f"   {len(df)} lignes pretes.")
     print()
     return df
 
 
-# Étape 4 : Affichage du résumé.
+# Étape 3 : Load — insertion en base
+def load(df: pd.DataFrame) -> int:
+    print("Load : insertion en base PostgreSQL...")
+    inserted = insert_weather(df)
+    print()
+    return inserted
+
+
+# Étape 4 : Affichage du résumé
 def print_summary(rows) -> None:
     if not rows:
         print("   (aucune donnée en base)")
@@ -75,12 +99,12 @@ def print_summary(rows) -> None:
         print(f"   {source:<12} {city:<20} {country:<6} {temp_str:>8} {desc_str:<22} {date_str}")
 
 
-# Pipeline complet.
+# Pipeline complet
 def run_pipeline() -> None:
-    print("PIPELINE METEO - multi-source -> PostgreSQL")
+    print("PIPELINE METEO - ETL -> PostgreSQL")
     print()
 
-    # Étape 1 : Vérifier la connexion BDD
+    # Vérification BDD
     print("Vérification de la connexion PostgreSQL...")
     if not test_connection():
         print()
@@ -89,11 +113,14 @@ def run_pipeline() -> None:
         return
     print()
 
-    # Étape 2 et 3 : Collecte et transformation
-    df = collect_and_transform(DESTINATIONS)
+    # Extract
+    raw_path = extract(DESTINATIONS)
+
+    # Transform
+    df = transform(raw_path)
 
     if df.empty:
-        print("Aucune donnée collectée. Arrêt du pipeline.")
+        print("Aucune donnée après transformation. Arrêt du pipeline.")
         return
 
     # Aperçu
@@ -102,12 +129,10 @@ def run_pipeline() -> None:
     print(df[preview_cols].to_string(index=False))
     print()
 
-    # Étape 4 : Insertion
-    print("Insertion en base PostgreSQL...")
-    insert_weather(df)
-    print()
+    # Load
+    load(df)
 
-    # Étape 5 : Vérification
+    # Vérification
     print("Résumé des dernières mesures par ville :")
     rows = query_latest_weather()
     print_summary(rows)

@@ -20,9 +20,9 @@ Bienvenue sur mon dépôt centralisé dédié à ma formation et ma progression 
   * **Concepts clés :** Ingestion via API REST, nettoyage et normalisation, automatisation de pipeline.
   * **Technologies :** Python (`requests`), PostgreSQL/MySQL, Docker, Apache Airflow.
 
-* **[ ] [Projet 4 : Web Scraping & Stockage Web](./04_web_scraping_sqlite/)**
+* **[X] [Projet 4 : Web Scraping & Stockage Web](./04_web_scraping/)**
   * **Concepts clés :** Extraction HTML, gestion des doublons, stockage léger.
-  * **Technologies :** BeautifulSoup, Scrapy, SQLite.
+  * **Technologies :** BeautifulSoup, Scrapy, MangoDB.
 
 ### 📂 Partie 2 : Pipelines ETL (Extract, Transform, Load)
 

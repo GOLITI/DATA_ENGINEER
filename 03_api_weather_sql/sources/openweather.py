@@ -28,9 +28,9 @@ def fetch(city: str, country: str) -> dict | None:
         r.raise_for_status()
         return r.json()
     except requests.exceptions.HTTPError as e:
-        print(f"   Erreur HTTP OpenWeather {city}: {e}")
+        print(f"Erreur HTTP OpenWeather {city}: {e}")
     except requests.exceptions.RequestException as e:
-        print(f"   Erreur reseau OpenWeather {city}: {e}")
+        print(f"Erreur reseau OpenWeather {city}: {e}")
     return None
 
 
@@ -60,5 +60,5 @@ def transform(raw: dict) -> dict | None:
             "collected_at": datetime.now(timezone.utc),
         }
     except KeyError as e:
-        print(f"   Champ manquant OpenWeather pour {raw.get('name', '?')}: {e}")
+        print(f"Champ manquant OpenWeather pour {raw.get('name', '?')}: {e}")
         return None

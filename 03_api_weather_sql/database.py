@@ -35,19 +35,19 @@ def get_or_create_city(conn, row) -> int:
             INSERT INTO cities (city_code, source, name, country, latitude, longitude)
             VALUES (:code, :source, :name, :country, :lat, :lon)
             ON CONFLICT (source, city_code) DO UPDATE
-                SET name      = EXCLUDED.name,
-                    country   = EXCLUDED.country,
-                    latitude  = EXCLUDED.latitude,
+                SET name = EXCLUDED.name,
+                    country = EXCLUDED.country,
+                    latitude = EXCLUDED.latitude,
                     longitude = EXCLUDED.longitude
             RETURNING id;
         """),
         {
-            "code":    int(row["city_code"]),
-            "source":  row["source"],
-            "name":    row["city"],
+            "code": int(row["city_code"]),
+            "source": row["source"],
+            "name": row["city"],
             "country": row["country"],
-            "lat":     _safe_float(row["latitude"]),
-            "lon":     _safe_float(row["longitude"]),
+            "lat": _safe_float(row["latitude"]),
+            "lon": _safe_float(row["longitude"]),
         }
     ).fetchone()
     return result[0]
@@ -108,7 +108,7 @@ def _safe_float(value):
         return None
     try:
         f = float(value)
-        if f != f:
+        if f != f: # NaN != NaN est toujours vrai
             return None
         return f
     except (TypeError, ValueError):
@@ -120,7 +120,7 @@ def _safe_int(value):
         return None
     try:
         f = float(value)
-        if f != f:  # NaN
+        if f != f:  
             return None
         return int(f)
     except (TypeError, ValueError):
