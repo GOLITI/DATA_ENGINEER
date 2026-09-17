@@ -1,0 +1,167 @@
+services:
+
+  # REDSHIFT LOCAL (data warehouse)
+  redshift:
+    image: deburky/redshift-local:16
+    container_name: redshift_local
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${REDSHIFT_USER}
+      POSTGRES_PASSWORD: ${REDSHIFT_PASSWORD}
+      POSTGRES_DB: ${REDSHIFT_DB}
+      POSTGRES_HOST_AUTH_METHOD: md5
+    ports:
+      - "${REDSHIFT_PORT}:5432"
+    volumes:
+      - redshift_data:/var/lib/postgresql/data
+    networks:
+      - sales_network
+
+  # POSTGRESQL AIRFLOW (metadata DB technique)
+  postgres-airflow:
+    image: postgres:18.3-alpine3.23
+    container_name: sales_airflow_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${AIRFLOW_DB_NAME}
+      POSTGRES_USER: ${AIRFLOW_DB_USER}
+      POSTGRES_PASSWORD: ${AIRFLOW_DB_PASSWORD}
+    ports:
+      - "${AIRFLOW_DB_PORT}:5432"
+    volumes:
+      - airflow_postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "${AIRFLOW_DB_USER}", "-d", "${AIRFLOW_DB_NAME}"]
+      interval: 10s
+      retries: 5
+    networks:
+      - sales_network
+
+  # POSTGRESQL SOURCE : sales_targets (données métier)
+  sales-targets-db:
+    image: postgres:18.3-alpine3.23
+    container_name: sales_targets_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${TARGETS_DB_NAME}
+      POSTGRES_USER: ${TARGETS_DB_USER}
+      POSTGRES_PASSWORD: ${TARGETS_DB_PASSWORD}
+    ports:
+      - "${TARGETS_DB_PORT}:5432"
+    volumes:
+      - sales_targets_data:/var/lib/postgresql
+      - ./init_targets.sql:/docker-entrypoint-initdb.d/init_targets.sql
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "${TARGETS_DB_USER}", "-d", "${TARGETS_DB_NAME}"]
+      interval: 10s
+      retries: 5
+    networks:
+      - sales_network
+
+  # AIRFLOW (webserver + scheduler + executor)
+  airflow:
+    build:
+      context: .
+      dockerfile: Dockerfile.airflow
+    container_name: sales_airflow
+    restart: unless-stopped
+    depends_on:
+      postgres-airflow:
+        condition: service_healthy
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${AIRFLOW_DB_USER}:${AIRFLOW_DB_PASSWORD}@postgres-airflow:5432/${AIRFLOW_DB_NAME}
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+      AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
+      AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW_SECRET_KEY}
+      # StatsD pour Prometheus
+      AIRFLOW__METRICS__STATSD_ON: 'true'
+      AIRFLOW__METRICS__STATSD_HOST: statsd-exporter
+      AIRFLOW__METRICS__STATSD_PORT: 9125
+      AIRFLOW__METRICS__STATSD_PREFIX: airflow
+      # Source Redshift (data warehouse)
+      REDSHIFT_HOST: redshift
+      REDSHIFT_PORT: 5433
+      REDSHIFT_DB: ${REDSHIFT_DB}
+      REDSHIFT_USER: ${REDSHIFT_USER}
+      REDSHIFT_PASSWORD: ${REDSHIFT_PASSWORD}
+      # Source PostgreSQL sales_targets
+      TARGETS_DB_HOST: sales-targets-db
+      TARGETS_DB_PORT: 5432
+      TARGETS_DB_NAME: ${TARGETS_DB_NAME}
+      TARGETS_DB_USER: ${TARGETS_DB_USER}
+      TARGETS_DB_PASSWORD: ${TARGETS_DB_PASSWORD}
+      # API REST Countries
+      RESTCOUNTRIES_API_KEY: ${RESTCOUNTRIES_API_KEY}
+      # Admin Airflow
+      AIRFLOW_ADMIN_USER: ${AIRFLOW_ADMIN_USER}
+      AIRFLOW_ADMIN_PASSWORD: ${AIRFLOW_ADMIN_PASSWORD}
+      AIRFLOW_ADMIN_EMAIL: ${AIRFLOW_ADMIN_EMAIL}
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./plugins:/opt/airflow/plugins
+      - ./data:/opt/airflow/data
+      - ./airflow-entrypoint.sh:/opt/airflow/airflow-entrypoint.sh
+    entrypoint: ["/bin/bash", "/opt/airflow/airflow-entrypoint.sh"]
+    networks:
+      - sales_network
+
+  # STATSD EXPORTER (pont Airflow ---> Prometheus)
+  statsd-exporter:
+    image: prom/statsd-exporter:latest
+    container_name: statsd_exporter
+    restart: unless-stopped
+    ports:
+      - "9102:9102"
+      - "9125:9125/udp"
+    networks:
+      - sales_network
+
+  # PROMETHEUS
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    networks:
+      - sales_network
+
+  # GRAFANA
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD}
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./config/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./config/grafana/datasources:/etc/grafana/provisioning/datasources
+    networks:
+      - sales_network
+
+volumes:
+  redshift_data:
+    name: redshift_data
+  airflow_postgres_data:
+    name: sales_airflow_postgres_data
+  sales_targets_data:
+    name: sales_targets_data
+  prometheus_data:
+    name: prometheus_data
+  grafana_data:
+    name: grafana_data
+
+networks:
+  sales_network:
+    name: sales_network

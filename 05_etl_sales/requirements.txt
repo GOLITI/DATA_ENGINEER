@@ -1,0 +1,6 @@
+pandas
+requests
+psycopg2-binary
+sqlalchemy
+python-dotenv
+redshift-connector

@@ -9,12 +9,12 @@ MONGO_USER = os.getenv("MONGO_USER")
 MONGO_PASSWORD = os.getenv("MONGO_PASSWORD")
 MONGO_HOST = os.getenv("MONGO_HOST", "localhost")
 MONGO_PORT = os.getenv("MONGO_PORT", "27017")
-MONGO_DB = os.getenv("MONGO_DB", "books")
+MONGO_DB = os.getenv("MONGO_DB", "library")
 MONGO_COLLECTION = os.getenv("MONGO_COLLECTION", "books")
 
 
 def get_collection():
-    """Retourne la collection MongoDB 'books.books'."""
+    """Retourne la collection MongoDB 'library.books'."""
     uri = f"mongodb://{MONGO_USER}:{MONGO_PASSWORD}@{MONGO_HOST}:{MONGO_PORT}/?authSource=admin"
     client = MongoClient(uri)
     return client[MONGO_DB][MONGO_COLLECTION]
