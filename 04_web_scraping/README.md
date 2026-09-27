@@ -34,10 +34,10 @@ Une plateforme d'e-commerce souhaite analyser les avis de ses concurrents pour m
 
 ## 🛠️ Technologies utilisées
 
-- **Langage** : Python 3
-- **Scraping** : Requests + BeautifulSoup4 + lxml
-- **Stockage** : MongoDB 7.0 (via Docker)
-- **Driver MongoDB** : PyMongo
-- **Configuration** : python-dotenv
-- **Conteneurisation** : Docker + Docker Compose
+   - **Langage** : Python
+   - **Scraping** : Requests + BeautifulSoup4 + lxml
+   - **Stockage** : MongoDB 7.0 (via Docker)
+   - **Driver MongoDB** : PyMongo
+   - **Configuration** : python-dotenv
+   - **Conteneurisation** : Docker + Docker Compose
 

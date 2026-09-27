@@ -1,0 +1,15 @@
+venv/
+.env
+__pycache__/
+*.pyc
+logs/
+airflow.cfg
+airflow.db
+webserver_config.py
+data/*.csv
+data/*.xlsx
+data/*.parquet
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

@@ -1,0 +1,141 @@
+services:
+
+  # 1. POSTGRESQL AIRFLOW (base technique)
+  postgres-airflow:
+    image: postgres:18.3-alpine3.23
+    container_name: finance_airflow_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${AIRFLOW_DB_NAME}
+      POSTGRES_USER: ${AIRFLOW_DB_USER}
+      POSTGRES_PASSWORD: ${AIRFLOW_DB_PASSWORD}
+    ports:
+      - "${AIRFLOW_DB_PORT}:5432"
+    volumes:
+      - airflow_postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "${AIRFLOW_DB_USER}", "-d", "${AIRFLOW_DB_NAME}"]
+      interval: 10s
+      retries: 5
+    networks:
+      - finance_network
+
+  # 2. POSTGRESQL COMPANY (source : référentiel entreprises)
+  company-db:
+    image: postgres:18.3-alpine3.23
+    container_name: company_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${COMPANY_DB_NAME}
+      POSTGRES_USER: ${COMPANY_DB_USER}
+      POSTGRES_PASSWORD: ${COMPANY_DB_PASSWORD}
+    ports:
+      - "${COMPANY_DB_PORT}:5432"
+    volumes:
+      - company_data:/var/lib/postgresql
+      - ./init_company.sql:/docker-entrypoint-initdb.d/init_company.sql
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "${COMPANY_DB_USER}", "-d", "${COMPANY_DB_NAME}"]
+      interval: 10s
+      retries: 5
+    networks:
+      - finance_network
+
+  # 3. POSTGRESQL DATA WAREHOUSE (destination)
+  postgres-dw:
+    image: postgres:18.3-alpine3.23
+    container_name: finance_dw
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DW_DB_NAME}
+      POSTGRES_USER: ${DW_DB_USER}
+      POSTGRES_PASSWORD: ${DW_DB_PASSWORD}
+    ports:
+      - "${DW_DB_PORT}:5432"
+    volumes:
+      - dw_data:/var/lib/postgresql
+      - ./init_schema.sql:/docker-entrypoint-initdb.d/init_schema.sql
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "${DW_DB_USER}", "-d", "${DW_DB_NAME}"]
+      interval: 10s
+      retries: 5
+    networks:
+      - finance_network
+
+  # 4. AIRFLOW (orchestration)
+  airflow:
+    build:
+      context: .
+      dockerfile: Dockerfile.airflow
+    container_name: finance_airflow
+    restart: unless-stopped
+    depends_on:
+      postgres-airflow:
+        condition: service_healthy
+      company-db:
+        condition: service_healthy
+      postgres-dw:
+        condition: service_healthy
+    environment:
+      # Airflow core
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${AIRFLOW_DB_USER}:${AIRFLOW_DB_PASSWORD}@postgres-airflow:5432/${AIRFLOW_DB_NAME}
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+      AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
+      AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW_SECRET_KEY}
+
+      # Source : company-db
+      COMPANY_DB_HOST: company-db
+      COMPANY_DB_PORT: 5432
+      COMPANY_DB_NAME: ${COMPANY_DB_NAME}
+      COMPANY_DB_USER: ${COMPANY_DB_USER}
+      COMPANY_DB_PASSWORD: ${COMPANY_DB_PASSWORD}
+
+      # Destination : postgres-dw
+      DW_DB_HOST: postgres-dw
+      DW_DB_PORT: 5432
+      DW_DB_NAME: ${DW_DB_NAME}
+      DW_DB_USER: ${DW_DB_USER}
+      DW_DB_PASSWORD: ${DW_DB_PASSWORD}
+
+      # Admin
+      AIRFLOW_ADMIN_USER: ${AIRFLOW_ADMIN_USER}
+      AIRFLOW_ADMIN_PASSWORD: ${AIRFLOW_ADMIN_PASSWORD}
+      AIRFLOW_ADMIN_EMAIL: ${AIRFLOW_ADMIN_EMAIL}
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./plugins:/opt/airflow/plugins
+      - ./data:/opt/airflow/data
+      - ./airflow-entrypoint.sh:/opt/airflow/airflow-entrypoint.sh
+    entrypoint: ["/bin/bash", "/opt/airflow/airflow-entrypoint.sh"]
+    networks:
+      - finance_network
+
+  # 5. METABASE (visualisation)
+  metabase:
+    image: metabase/metabase:latest
+    container_name: finance_metabase
+    restart: unless-stopped
+    ports:
+      - "${METABASE_PORT}:3000"
+    volumes:
+      - metabase_data:/metabase-data
+    networks:
+      - finance_network
+
+volumes:
+  airflow_postgres_data:
+    name: finance_airflow_postgres_data
+  company_data:
+    name: company_data
+  dw_data:
+    name: finance_dw_data
+  metabase_data:
+    name: finance_metabase_data
+
+networks:
+  finance_network:
+    name: finance_network
